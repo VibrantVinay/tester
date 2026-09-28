@@ -1,29 +1,131 @@
-{% extends "import.html" %} 
-{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Brain Stroke Classification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            padding: 20px;
+        }
+        .upload-section {
+            margin-bottom: 30px;
+        }
+        /* Responsive Grid: Cards automatically wrap to fit the screen */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .grid-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .grid-item img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+        .filename {
+            font-size: 0.85em;
+            color: #666;
+            margin: 10px 0;
+            word-wrap: break-word;
+        }
+        .prediction {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #222;
+        }
+        .loading {
+            display: none;
+            font-size: 1.2em;
+            color: #007bff;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
 
-<center>
-<br><h2>Brain Stroke Classification Using Deep Learning</h2><br>
-
-    <form id="upload-file" method="post" enctype="multipart/form-data">
-         <input type="file" name="file" class="btn btn-success" id="imageUpload" accept=".png, .jpg, .jpeg">
-    </form>
-
-
-    <div class="image-section" style="display:none;">
-         <img id="imagePreview"  class="img-responsive" src="#" style="width:300px;height:300px;"/><br><br>
-         <div>
-            <button type="button" class="btn btn-info btn-lg " id="btn-predict">Predict!</button>
-         </div>
+    <div class="upload-section">
+        <h1>Brain Stroke Classification</h1>
+        <p>Select up to 1000 MRI scans at once.</p>
+        
+        <form id="uploadForm">
+            <!-- 'multiple' attribute allows selecting multiple files -->
+            <input type="file" id="fileInput" name="file" multiple accept="image/*" required>
+            <button type="submit">Predict All</button>
+        </form>
+        
+        <div id="loadingIndicator" class="loading">Processing images... Please wait.</div>
     </div>
 
+    <!-- The Grid where results will populate -->
+    <div id="resultsGrid" class="grid-container"></div>
 
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+            
+            // Validation: Max 1000 images
+            if (files.length > 1000) {
+                alert("Please select a maximum of 1000 images.");
+                return;
+            }
 
-    <div class="loader" style="display:none;"></div>
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('file', files[i]);
+            }
 
-    <h3 id="result">
-        <span> </span>
-    </h3>
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('resultsGrid').innerHTML = ''; // Clear previous results
 
-
-</center><br><br>
-{% endblock %}
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && !data.error) {
+                    const grid = document.getElementById('resultsGrid');
+                    
+                    // Loop through the JSON array and build the grid cards dynamically
+                    data.forEach(item => {
+                        const card = document.createElement('div');
+                        card.className = 'grid-item';
+                        
+                        card.innerHTML = `
+                            <img src="${item.image_url}" alt="MRI Scan">
+                            <div class="filename">${item.filename}</div>
+                            <div class="prediction">Result: ${item.prediction}</div>
+                        `;
+                        
+                        grid.appendChild(card);
+                    });
+                } else {
+                    alert(data.error || "An error occurred during prediction.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Server error. Check terminal for details.");
+            } finally {
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
